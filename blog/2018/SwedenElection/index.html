@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Sweden election 2014</title>
+<meta name="description" content="Plotting the Swedish Election 2014This post plots the results from the 2014 Swedish general electionfor each political party per county.The values plotted ar...">
+
+<link rel="stylesheet" href="/css/main.css">
+<link rel="canonical" href="http://jespermaag.github.io/blog/2018/SwedenElection/">
+<link rel="alternate" type="application/rss+xml" title="Jesper Maag PhD" href="http://jespermaag.github.io/feed.xml" />
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', '', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+</head>
+<body>
+  <header class="site-header">
+  <div class="container">
+    <input type="checkbox" id="toggleNavbar">
+    <h1 class="logo"><a href="/">end2<span>end</span> <small>v2.0</small></a></h1>
+    <label for="toggleNavbar" role="button" class="toggle-navbar-button">
+      <i class="icon icon-menu"></i>
+      <i class="icon icon-cross"></i>
+    </label>
+    <nav class="navbar">
+      <ul>
+        <li><a href="/" title="Home">Home</a></li>
+        
+          <li><a href="/about" title="About">About</a></li>
+        
+          <li><a href="/blog" title="Blog">Blog</a></li>
+        
+          <li><a href="/publications" title="Publications">Publications</a></li>
+        
+          <li><a href="/education" title="Education">Education</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+</header>
+
+
+<main class="main-container">
+  <div class="container">
+    <article role="article" class="post">
+
+  <div class="card">
+    <header class="post-header">
+      <h1 class="post-title">Sweden election 2014</h1>
+      <em class="post-meta">
+        <time>Mar 17, 2018</time>
+      </em>
+    </header>
+
+    <div class="post-content">
+      
+        <figure class="post-thumbnail ">
+          <img src="/assets/Rfig/unnamed-chunk-6-2.png" alt="Sweden election 2014">
+        </figure>
+      
+      <h1 id="plotting-the-swedish-election-2014">Plotting the Swedish Election 2014</h1>
+<p>This post plots the results from the 2014 Swedish general election
+for each political party per county.
+The values plotted are votes as z-value for each county compared to the whole country.</p>
+
+<p>Loading libraries</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kn">library</span><span class="p">(</span>httr<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>lubridate<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>jsonlite<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>ggplot2<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>swemaps<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>rkolada<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>maps<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>dplyr<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>RColorBrewer<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>htmlwidgets<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>rvg<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>ggiraph<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>gganimate<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>gridExtra<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>grid<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>gtable<span class="p">)</span></code></pre></figure>
+
+<h4 id="getting-data">Getting data</h4>
+<p>Get all the election data per county and per election.
+This involves trying to figure out where on the Swedish Statistical Bureau you can find information (http://api.scb.se/OV0104/v1/doris/sv/ssd/) .
+For english go to http://api.scb.se/OV0104/v1/doris/en/ssd</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>url <span class="o">&lt;-</span> <span class="s">&quot;http://api.scb.se/OV0104/v1/doris/sv/ssd/ME/ME0104/ME0104C/ME0104T3&quot;</span>
+
+SCB <span class="o">&lt;-</span> jsonlite<span class="o">::</span>fromJSON<span class="p">(</span><span class="kp">url</span><span class="p">)</span>
+
+SCB<span class="o">$</span>variables<span class="o">$</span>code</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## [1] &quot;Region&quot;       &quot;Partimm&quot;      &quot;ContentsCode&quot; &quot;Tid&quot;</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>query <span class="o">=</span> <span class="kp">paste0</span><span class="p">(</span><span class="s">&#39; { &quot;query&quot;: [  {&quot;code&quot;: &quot;ContentsCode&quot;,&quot;selection&quot;: {&quot;filter&quot;: &quot;item&quot;, &quot;values&quot;: [ &quot;ME0104B7&quot;] } }, {&quot;code&quot;: &quot;Tid&quot;,</span>
+<span class="s"> &quot;selection&quot;: {&quot;filter&quot;: &quot;item&quot;,</span>
+<span class="s"> &quot;values&quot;: [&quot;&#39;</span><span class="p">,</span> <span class="kp">paste</span><span class="p">(</span>SCB<span class="o">$</span>variables<span class="o">$</span>values<span class="p">[[</span><span class="m">4</span><span class="p">]],</span>collapse<span class="o">=</span><span class="s">&#39;&quot; &quot;&#39;</span><span class="p">),</span><span class="s">&#39;&quot;]}},   </span>
+<span class="s"> {&quot;code&quot;: &quot;Region&quot;,&quot;selection&quot;: {&quot;filter&quot;: &quot;item&quot;, &quot;values&quot;: [&quot;&#39;</span><span class="p">,</span> <span class="kp">paste</span><span class="p">(</span>SCB<span class="o">$</span>variables<span class="o">$</span>values<span class="p">[[</span><span class="m">1</span><span class="p">]],</span>collapse<span class="o">=</span><span class="s">&#39;&quot; &quot;&#39;</span><span class="p">),</span> 
+ <span class="s">&#39;&quot;] } } ],&quot;response&quot;: {&quot;format&quot;: &quot;csv&quot;}  }&#39;</span><span class="p">)</span>
+
+results <span class="o">&lt;-</span> POST<span class="p">(</span><span class="kp">url</span><span class="p">,</span> body<span class="o">=</span>query<span class="p">)</span>
+SCBdata <span class="o">&lt;-</span> content<span class="p">(</span>results<span class="p">)</span>
+
+SCBdata</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## # A tibble: 3,553 x 15
+##    region  `parti mm`  `Andel röster (a… `Andel röster (… `Andel röster (…
+##    &lt;chr&gt;   &lt;chr&gt;       &lt;chr&gt;             &lt;chr&gt;            &lt;chr&gt;           
+##  1 0114 U… Moderaterna 15.5              17.1             23.5            
+##  2 0114 U… Centerpart… 23.6              20.1             12.8            
+##  3 0114 U… Folkpartiet 9.7               13.8             12.1            
+##  4 0114 U… Kristdemok… 1.0               0.6              0.8             
+##  5 0114 U… Miljöparti… ..                ..               ..              
+##  6 0114 U… Socialdemo… 42.9              41.4             41.9            
+##  7 0114 U… Vänsterpar… 6.5               6.5              7.8             
+##  8 0114 U… Sverigedem… ..                ..               ..              
+##  9 0114 U… övriga par… 0.6               0.5              1.0             
+## 10 0114 U… ogiltiga v… ..                ..               ..              
+## # ... with 3,543 more rows, and 10 more variables: `Andel röster (av
+## #   giltiga röster) 1982` &lt;chr&gt;, `Andel röster (av giltiga röster)
+## #   1985` &lt;chr&gt;, `Andel röster (av giltiga röster) 1988` &lt;chr&gt;, `Andel
+## #   röster (av giltiga röster) 1991` &lt;chr&gt;, `Andel röster (av giltiga
+## #   röster) 1994` &lt;chr&gt;, `Andel röster (av giltiga röster) 1998` &lt;chr&gt;,
+## #   `Andel röster (av giltiga röster) 2002` &lt;chr&gt;, `Andel röster (av
+## #   giltiga röster) 2006` &lt;chr&gt;, `Andel röster (av giltiga röster)
+## #   2010` &lt;chr&gt;, `Andel röster (av giltiga röster) 2014` &lt;chr&gt;</code></pre></figure>
+
+<h4 id="extract-county-code-and-remove-lan">Extract county code and remove lan</h4>
+<p>As we only want to plot the county data, we remove the larger Lan</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>SCBdata<span class="o">$</span>kod <span class="o">&lt;-</span> <span class="kp">unlist</span><span class="p">(</span><span class="kp">lapply</span><span class="p">(</span><span class="kp">strsplit</span><span class="p">(</span>SCBdata<span class="o">$</span>region<span class="p">,</span>split<span class="o">=</span><span class="s">&#39; &#39;</span><span class="p">),</span> <span class="kr">function</span><span class="p">(</span>x<span class="p">)</span> <span class="p">{</span>x<span class="p">[</span><span class="m">1</span><span class="p">]}))</span>
+SCBdata <span class="o">&lt;-</span> SCBdata<span class="p">[</span><span class="kp">grep</span><span class="p">(</span><span class="s">&#39;VR&#39;</span><span class="p">,</span> SCBdata<span class="o">$</span>kod<span class="p">,</span> invert<span class="o">=</span><span class="bp">T</span><span class="p">),]</span></code></pre></figure>
+
+<h4 id="clean-data-and-make-interactive">Clean data and make interactive</h4>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>sweden_map <span class="o">&lt;-</span> map_kn <span class="o">%&gt;%</span>
+	select<span class="p">(</span>leaflet_long<span class="p">,</span> leaflet_lat<span class="p">,</span> knkod<span class="p">,</span> knnamn<span class="p">,</span> lnnamn<span class="p">)</span> <span class="o">%&gt;%</span>
+	rename<span class="p">(</span>long <span class="o">=</span> leaflet_long<span class="p">,</span> lat<span class="o">=</span> leaflet_lat<span class="p">,</span> region<span class="o">=</span>knkod<span class="p">,</span> subregion<span class="o">=</span>knnamn<span class="p">)</span> <span class="o">%&gt;%</span>
+	fortify<span class="p">()</span> <span class="o">%&gt;%</span>
+        <span class="kp">unique</span><span class="p">()</span>
+
+SCBdata <span class="o">&lt;-</span> SCBdata<span class="p">[</span>SCBdata<span class="o">$</span>kod<span class="o">%in%</span>sweden_map<span class="o">$</span>region<span class="p">,]</span>
+
+SCBmelt <span class="o">&lt;-</span> melt<span class="p">(</span>SCBdata<span class="p">,</span> id<span class="o">=</span><span class="kt">c</span><span class="p">(</span><span class="s">&#39;region&#39;</span><span class="p">,</span> <span class="s">&#39;parti mm&#39;</span><span class="p">,</span> <span class="s">&#39;kod&#39;</span><span class="p">))</span>
+SCBmelt<span class="p">[</span>SCBmelt<span class="o">$</span>value<span class="o">==</span><span class="s">&#39;..&#39;</span><span class="p">,]</span><span class="o">$</span>value <span class="o">&lt;-</span> <span class="m">0</span>
+SCBmelt<span class="o">$</span>value <span class="o">&lt;-</span> <span class="kp">as.numeric</span><span class="p">(</span>SCBmelt<span class="o">$</span>value<span class="p">)</span>
+
+
+SCBmelt<span class="o">$</span>tip <span class="o">&lt;-</span> <span class="kp">paste0</span><span class="p">(</span>
+<span class="s">&quot;&lt;b&gt;&quot;</span><span class="p">,</span> <span class="kp">sub</span><span class="p">(</span><span class="s">&quot;.*? (.+)&quot;</span><span class="p">,</span> <span class="s">&quot;\\1&quot;</span><span class="p">,</span> SCBmelt<span class="o">$</span>region<span class="p">),</span> <span class="s">&quot;&lt;/b&gt; &quot;</span><span class="p">,</span>
+<span class="s">&quot;&lt;br&gt;&quot;</span><span class="p">,</span> <span class="kp">paste0</span><span class="p">(</span><span class="kp">round</span><span class="p">(</span>SCBmelt<span class="o">$</span>value<span class="p">),</span><span class="s">&#39;%&#39;</span><span class="p">))</span>
+SCBmelt<span class="o">$</span>variable<span class="o">=</span> <span class="kp">gsub</span><span class="p">(</span><span class="s">&#39;Andel röster \\(av giltiga röster\\) &#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">,</span>SCBmelt<span class="o">$</span>variable <span class="p">)</span>
+
+<span class="kp">colnames</span><span class="p">(</span>SCBmelt<span class="p">)</span> <span class="o">&lt;-</span> <span class="kt">c</span><span class="p">(</span><span class="s">&#39;region&#39;</span><span class="p">,</span> <span class="s">&#39;parti&#39;</span><span class="p">,</span> <span class="s">&#39;kod&#39;</span><span class="p">,</span> <span class="s">&#39;year&#39;</span><span class="p">,</span><span class="s">&#39;percent&#39;</span><span class="p">,</span> <span class="s">&#39;tip&#39;</span><span class="p">)</span>
+
+SCBmelt <span class="o">&lt;-</span> SCBmelt<span class="p">[</span><span class="kp">grep</span><span class="p">(</span><span class="s">&#39;ogiltiga valsedlar|ej röstande&#39;</span><span class="p">,</span> SCBmelt<span class="o">$</span>parti<span class="p">,</span> invert<span class="o">=</span><span class="bp">T</span><span class="p">),]</span></code></pre></figure>
+
+<h4 id="create-colour-for-each-party">Create colour for each party</h4>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kp">unique</span><span class="p">(</span>SCBmelt<span class="o">$</span>parti<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## [1] &quot;Moderaterna&quot;         &quot;Centerpartiet&quot;       &quot;Folkpartiet&quot;        
+## [4] &quot;Kristdemokraterna&quot;   &quot;Miljöpartiet&quot;        &quot;Socialdemokraterna&quot; 
+## [7] &quot;Vänsterpartiet&quot;      &quot;Sverigedemokraterna&quot; &quot;övriga partier&quot;</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>SCBmelt<span class="o">$</span>cols <span class="o">&lt;-</span> <span class="s">&quot;#129B93&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Socialdemokraterna&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;firebrick2&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Moderaterna&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;deepskyblue4&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Centerpartiet&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;darkgreen&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Folkpartiet&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;dodgerblue3&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Kristdemokraterna&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;navy&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Miljöpartiet&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;green3&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Vänsterpartiet&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;red3&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;Sverigedemokraterna&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;goldenrod3&quot;</span>
+SCBmelt<span class="o">$</span>cols<span class="p">[</span>SCBmelt<span class="o">$</span>parti <span class="o">%in%</span> <span class="s">&quot;övriga partier&quot;</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&quot;gray52&quot;</span></code></pre></figure>
+
+<h4 id="plot-data">Plot data</h4>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>partiPlot <span class="o">&lt;-</span> SCBmelt<span class="p">[</span>SCBmelt<span class="o">$</span>year<span class="o">==</span><span class="s">&#39;2014&#39;</span><span class="p">,]</span>
+plotlist <span class="o">&lt;-</span> <span class="kt">list</span><span class="p">()</span> <span class="c1"># create empty list to fill with plots</span>
+<span class="kr">for</span><span class="p">(</span>i <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="kp">length</span><span class="p">(</span><span class="kp">unique</span><span class="p">(</span>partiPlot<span class="o">$</span>parti<span class="p">)))</span>
+  <span class="kp">local</span><span class="p">({</span>
+    i <span class="o">&lt;-</span> i
+    <span class="c1"># filter data to only contain current party</span>
+    plotdata <span class="o">&lt;-</span> partiPlot <span class="o">%&gt;%</span> filter<span class="p">(</span>parti <span class="o">%in%</span> <span class="kp">unique</span><span class="p">(</span>partiPlot<span class="o">$</span>parti<span class="p">)[</span>i<span class="p">])</span>
+    plotdata<span class="o">$</span>Long <span class="o">&lt;-</span> <span class="s">&#39;all&#39;</span>
+    plotdata<span class="o">$</span>Long<span class="p">[</span><span class="kp">as.numeric</span><span class="p">(</span>plotdata<span class="o">$</span>kod<span class="p">)</span><span class="o">&lt;</span><span class="m">0563</span><span class="p">]</span> <span class="o">&lt;-</span> <span class="s">&#39;south&#39;</span>
+    <span class="c1"># save plot as list element  </span>
+    plotlist<span class="p">[[</span>i<span class="p">]]</span> <span class="o">&lt;&lt;-</span>    plotdata <span class="o">%&gt;%</span>
+                                ggplot<span class="p">(</span> aes<span class="p">(</span>map_id<span class="o">=</span>kod<span class="p">,</span> fill<span class="o">=</span>percent<span class="p">,</span> frame <span class="o">=</span> year<span class="p">))</span><span class="o">+</span> 
+                                geom_map_interactive<span class="p">(</span>data<span class="o">=</span>plotdata<span class="p">,</span> map<span class="o">=</span>sweden_map<span class="p">,</span> aes<span class="p">(</span>fill<span class="o">=</span>percent<span class="p">,</span> 
+                                tooltip<span class="o">=</span>tip<span class="p">,</span> map_id<span class="o">=</span>kod<span class="p">,</span> data_id<span class="o">=</span>kod<span class="p">),</span> 
+                                colour<span class="o">=</span><span class="s">&quot;white&quot;</span><span class="p">,</span> size<span class="o">=</span><span class="m">0.05</span><span class="p">)</span><span class="o">+</span>
+                                expand_limits<span class="p">(</span>x <span class="o">=</span> sweden_map<span class="o">$</span>long<span class="p">,</span> y <span class="o">=</span> sweden_map<span class="o">$</span>lat<span class="p">)</span><span class="o">+</span>
+                                theme_void<span class="p">()</span> <span class="o">+</span>
+                                scale_fill_gradient2<span class="p">(</span>low<span class="o">=</span><span class="s">&quot;#F4F4F4&quot;</span><span class="p">,</span> high<span class="o">=</span><span class="kp">unique</span><span class="p">(</span>plotdata<span class="o">$</span>cols<span class="p">))</span> <span class="o">+</span>
+                                theme<span class="p">(</span>legend.position<span class="o">=</span><span class="s">&#39;none&#39;</span><span class="p">)</span><span class="o">+</span>
+                                ggtitle<span class="p">(</span><span class="kp">unique</span><span class="p">(</span>partiPlot<span class="o">$</span>parti<span class="p">)[</span>i<span class="p">])</span><span class="o">+</span>
+                                theme<span class="p">(</span>plot.background <span class="o">=</span> element_rect<span class="p">(</span>fill <span class="o">=</span> <span class="s">&#39;#999999&#39;</span><span class="p">))</span><span class="o">+</span>
+                                theme<span class="p">(</span>line <span class="o">=</span> element_blank<span class="p">(),</span>plot.title <span class="o">=</span> element_text<span class="p">(</span>hjust <span class="o">=</span> <span class="m">0.5</span><span class="p">))</span><span class="c1">#+</span>
+                                <span class="c1">#facet_zoom(xlim = c(10, 18), ylim = c(55, 60), zoom.size = 2)</span>
+<span class="p">})</span>
+<span class="kp">do.call</span><span class="p">(</span><span class="s">&quot;grid.arrange&quot;</span><span class="p">,</span> <span class="kt">c</span><span class="p">(</span>plotlist<span class="p">,</span> ncol<span class="o">=</span><span class="m">3</span><span class="p">))</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/unnamed-chunk-6-1.svg" alt="plot of chunk unnamed-chunk-6" /></p>
+
+
+    </div>
+
+    
+
+  </div>
+
+</article>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <ul class="social">
+  <li><a href="https://github.com/jespermaag" target="_blank"><i class="icon icon-github"></i></a></li>
+  <li><a href="https://twitter.com/jespermaag" target="_blank"><i class="icon icon-twitter"></i></a></li>
+  <li><a href="https://linkedin.com/in/jesper-maag" target="_blank"><i class="icon icon-linkedin"></i></a></li>
+</ul>
+    <p class="txt-medium-gray">
+      <small>&copy;2018 All rights reserved. Made with <a href="http://jekyllrb.com/" target="_blank">Jekyll</a> and ♥</small>
+    </p>
+  </div>
+</footer>
+
+
+  <a href="http://jespermaag.github.io" target="_blank" class="github-corner"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#337ab7; color:#fff; position: absolute; top: 0; border: 0; right: 0;"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+</body>
+</html>
