@@ -1,0 +1,202 @@
+output: rmarkdown::github_document
+
+Jesper Maag
+
+jespermaag@gmail.com
+
+
+# Plotting the percentage vote for each political party in Sweden per county 
+
+
+Loading libraries 
+```{r}
+library(httr)
+library(lubridate)
+library(jsonlite)
+library(ggplot2)
+library(swemaps)
+library(rkolada)
+library(maps)
+library(dplyr)
+library(RColorBrewer)
+library(htmlwidgets)
+library(rvg)
+library(ggiraph)
+library(gganimate)
+library(gridExtra)
+library(grid)
+library(gtable)
+```
+
+#### Getting data
+Get all the election data per county and per election.
+This involves trying to figure out where on the Swedish Statistical Bureau you can find information (http://api.scb.se/OV0104/v1/doris/sv/ssd/) .
+For english go to http://api.scb.se/OV0104/v1/doris/en/ssd
+```{r}
+url <- "http://api.scb.se/OV0104/v1/doris/sv/ssd/ME/ME0104/ME0104C/ME0104T3"
+
+SCB <- jsonlite::fromJSON(url)
+
+SCB$variables$code
+
+
+query = paste0(' { "query": [  {"code": "ContentsCode","selection": {"filter": "item", "values": [ "ME0104B7"] } }, {"code": "Tid", "selection": {"filter": "item","values": ["', paste(SCB$variables$values[[4]],collapse='" "'),'"]}},   {"code": "Region","selection": {"filter": "item", "values": ["', paste(SCB$variables$values[[1]],collapse='" "'), '"] } } ],"response": {"format": "csv"}  }')
+
+results <- POST(url, body=query)
+SCBdata <- content(results)
+
+SCBdata
+```
+
+#### Extract county code and remove lan
+```{r}
+
+SCBdata$kod <- unlist(lapply(strsplit(SCBdata$region,split=' '), function(x) {x[1]}))
+SCBdata <- SCBdata[grep('VR', SCBdata$kod, invert=T),]
+      
+```
+
+#### Clean data and make interactive
+
+```{r}  
+sweden_map <- map_kn %>%
+	select(leaflet_long, leaflet_lat, knkod, knnamn, lnnamn) %>%
+	rename(long = leaflet_long, lat= leaflet_lat, region=knkod, subregion=knnamn) %>%
+	fortify() %>%
+        unique()
+
+SCBdata <- SCBdata[SCBdata$kod%in%sweden_map$region,]
+
+SCBmelt <- melt(SCBdata, id=c('region', 'parti mm', 'kod'))
+SCBmelt[SCBmelt$value=='..',]$value <- 0
+SCBmelt$value <- as.numeric(SCBmelt$value)
+
+
+SCBmelt$tip <- paste0(
+"<b>", sub(".*? (.+)", "\\1", SCBmelt$region), "</b> ",
+"<br>", paste0(round(SCBmelt$value),'%'))
+SCBmelt$variable= gsub('Andel röster \\(av giltiga röster\\) ','',SCBmelt$variable )
+
+colnames(SCBmelt) <- c('region', 'parti', 'kod', 'year','percent', 'tip')
+
+SCBmelt <- SCBmelt[grep('ogiltiga valsedlar|ej röstande', SCBmelt$parti, invert=T),]
+
+```
+
+
+#### Create colour for each party
+```{r}
+unique(SCBmelt$parti)
+
+SCBmelt$cols <- "#129B93"
+SCBmelt$cols[SCBmelt$parti %in% "Socialdemokraterna"] <- "firebrick2"
+SCBmelt$cols[SCBmelt$parti %in% "Moderaterna"] <- "deepskyblue4"
+SCBmelt$cols[SCBmelt$parti %in% "Centerpartiet"] <- "darkgreen"
+SCBmelt$cols[SCBmelt$parti %in% "Folkpartiet"] <- "dodgerblue3"
+SCBmelt$cols[SCBmelt$parti %in% "Kristdemokraterna"] <- "navy"
+SCBmelt$cols[SCBmelt$parti %in% "Miljöpartiet"] <- "green3"
+SCBmelt$cols[SCBmelt$parti %in% "Vänsterpartiet"] <- "red3"
+SCBmelt$cols[SCBmelt$parti %in% "Sverigedemokraterna"] <- "goldenrod3"
+SCBmelt$cols[SCBmelt$parti %in% "övriga partier"] <- "gray52"
+
+
+```
+
+#### Plot data 
+```{r}
+partiPlot <- SCBmelt[SCBmelt$year=='2014',]
+plotlist <- list() # create empty list to fill with plots
+for(i in 1:length(unique(partiPlot$parti)))
+  local({
+    i <- i
+    # filter data to only contain current party
+    plotdata <- partiPlot %>% filter(parti %in% unique(partiPlot$parti)[i])
+    plotdata$Long <- 'all'
+    plotdata$Long[as.numeric(plotdata$kod)<0563] <- 'south'
+    # save plot as list element  
+    plotlist[[i]] <<-    plotdata %>%
+                                ggplot( aes(map_id=kod, fill=percent, frame = year))+ 
+                                geom_map_interactive(data=plotdata, map=sweden_map, aes(fill=percent, 
+                                tooltip=tip, map_id=kod, data_id=kod), 
+                                colour="white", size=0.05)+
+                                expand_limits(x = sweden_map$long, y = sweden_map$lat)+
+                                theme_void() +
+                                scale_fill_gradient2(low="#F4F4F4", high=unique(plotdata$cols)) +
+                                theme(legend.position='none')+
+                                ggtitle(unique(partiPlot$parti)[i])+
+                                theme(plot.background = element_rect(fill = '#999999'))+
+                                theme(line = element_blank(),plot.title = element_text(hjust = 0.5))#+
+                                #facet_zoom(xlim = c(10, 18), ylim = c(55, 60), zoom.size = 2)
+})
+SwePol <-do.call("grid.arrange", c(plotlist, ncol=3))
+
+title <- textGrob("2014",gp=gpar(fontsize=50))
+        padding <- unit(5,"mm")
+
+table <- gtable_add_rows(
+     SwePol, 
+     heights = grobHeight(title) + padding,
+     pos = 0)
+table <- gtable_add_grob(
+    table, 
+    title, 
+    1, 1, 1, ncol(table))
+
+
+
+ggiraph(code = {print(grid.draw(table))},  hover_css = "fill:red;r:3pt;" ,height_svg=9)
+
+```
+
+#### Create a gif of all the years possible
+ggannimate did not seem to work for a TableGrob object. 
+Instead I used a for loop for each year and combined the different years using Imagemagick. 
+```{r}
+#for (j in unique(SCBmelt$year)){
+#        partiPlot <- SCBmelt[SCBmelt$year==j,]
+#        plotlist <- list() # create empty list to fill with plots
+#        for(i in 1:length(unique(partiPlot$parti)))
+#          local({
+#            i <- i
+#            # filter data to only contain current party
+#            plotdata <- partiPlot %>% filter(parti %in% unique(partiPlot$parti)[i])
+#            plotdata$Long <- 'all'
+#            plotdata$Long[as.numeric(plotdata$kod)<0563] <- 'south'
+#            # save plot as list element  
+#            plotlist[[i]] <<-    plotdata %>%
+#                                        ggplot( aes(map_id=kod, fill=percent, frame = year))+ 
+#                                        geom_map_interactive(data=plotdata, map=sweden_map, aes(fill=percent, 
+#                                        tooltip=tip, map_id=kod, data_id=kod), 
+#                                        colour="white", size=0.05)+
+#                                        expand_limits(x = sweden_map$long, y = sweden_map$lat)+
+#                                        theme_void() +
+#                                        scale_fill_gradient2(low="#F4F4F4", high=unique(plotdata$cols)) +
+#                                        theme(legend.position='none')+
+#                                        ggtitle(unique(partiPlot$parti)[i])+
+#                                        theme(plot.background = element_rect(fill = '#999999'))+
+#                                        theme(line = element_blank(),plot.title = element_text(hjust = 0.5))#+
+#                                        #facet_zoom(xlim = c(10, 18), ylim = c(55, 60), zoom.size = 2)
+#        })
+#        SwePol <-do.call("grid.arrange", c(plotlist, ncol=3))
+#        
+#        title <- textGrob(j,gp=gpar(fontsize=50))
+#        padding <- unit(5,"mm")
+#
+#        table <- gtable_add_rows(
+#             SwePol, 
+#             heights = grobHeight(title) + padding,
+#             pos = 0)
+#        table <- gtable_add_grob(
+#            table, 
+#            title, 
+#            1, 1, 1, ncol(table))
+#
+#        jpeg(paste(j,'.png'),height=700,width=400)
+#        grid.draw(table)
+#        dev.off()     
+#}
+```
+```
+#convert -delay 100 -loop 0 *.png SwedenPol.gif 
+```
+#

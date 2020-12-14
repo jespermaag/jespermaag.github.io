@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Bayesian regression of heart data</title>
+<meta name="description" content="This post tries to use Bayesian linear regression to explorecauses of heart disease.Bayesian linear regression">
+
+<link rel="stylesheet" href="/css/main.css">
+<link rel="canonical" href="http://jespermaag.github.io/blog/2018/BayesianHeart/">
+<link rel="alternate" type="application/rss+xml" title="Jesper Maag PhD" href="http://jespermaag.github.io/feed.xml" />
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', '', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+</head>
+<body>
+  <header class="site-header">
+  <div class="container">
+    <input type="checkbox" id="toggleNavbar">
+    <nav class="navbar">
+      <ul>
+        <li><a href="/" title="Home">Home</a></li>
+        
+          <li><a href="/about" title="About">About</a></li>
+        
+          <li><a href="/education" title="Education">Education</a></li>
+        
+          <li><a href="/experience" title="Experience">Experience</a></li>
+        
+          <li><a href="/blog" title="Blog">Blog</a></li>
+        
+          <li><a href="/publications" title="Publications">Publications</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+</header>
+
+
+<main class="main-container">
+  <div class="container">
+    <article role="article" class="post">
+
+  <div class="card">
+    <header class="post-header">
+      <h1 class="post-title">Bayesian regression of heart data</h1>
+      <em class="post-meta">
+        <time>Mar 17, 2018</time>
+      </em>
+    </header>
+
+    <div class="post-content">
+      
+        <figure class="post-thumbnail ">
+          <img src="/assets/Rfig/Posterior-1.png" alt="Bayesian regression of heart data">
+        </figure>
+      
+      <p>This post tries to use Bayesian linear regression to explore
+causes of heart disease.</p>
+<h2 id="bayesian-linear-regression">Bayesian linear regression</h2>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kn">library</span><span class="p">(</span><span class="s">&quot;corrplot&quot;</span><span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>ncvreg<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>ipred<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>dplyr<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>ggplot2<span class="p">)</span>
+<span class="kn">library</span><span class="p">(</span>RColorBrewer<span class="p">)</span>
+<span class="c1">#data(dystrophy)</span>
+data<span class="p">(</span>heart<span class="p">)</span>
+<span class="kp">dim</span><span class="p">(</span>heart<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## [1] 462  10</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>str<span class="p">(</span>heart<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## &#39;data.frame&#39;:	462 obs. of  10 variables:
+##  $ sbp      : int  160 144 118 170 134 132 142 114 114 132 ...
+##  $ tobacco  : num  12 0.01 0.08 7.5 13.6 6.2 4.05 4.08 0 0 ...
+##  $ ldl      : num  5.73 4.41 3.48 6.41 3.5 6.47 3.38 4.59 3.83 5.8 ...
+##  $ adiposity: num  23.1 28.6 32.3 38 27.8 ...
+##  $ famhist  : num  1 0 1 1 1 1 0 1 1 1 ...
+##  $ typea    : int  49 55 52 51 60 62 59 62 49 69 ...
+##  $ obesity  : num  25.3 28.9 29.1 32 26 ...
+##  $ alcohol  : num  97.2 2.06 3.81 24.26 57.34 ...
+##  $ age      : int  52 63 46 58 49 45 38 58 29 53 ...
+##  $ chd      : int  1 1 0 1 1 0 0 1 0 1 ...</code></pre></figure>
+
+<p>##Omit NA’s and plot variables to see if there’s correlations</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>dat <span class="o">=</span> heart
+Cor <span class="o">&lt;-</span> cor<span class="p">(</span>dat<span class="p">)</span>
+corrplot<span class="p">(</span>Cor<span class="p">,</span> type<span class="o">=</span><span class="s">&quot;upper&quot;</span><span class="p">,</span> method<span class="o">=</span><span class="s">&quot;ellipse&quot;</span><span class="p">,</span> tl.pos<span class="o">=</span><span class="s">&quot;d&quot;</span><span class="p">)</span>
+corrplot<span class="p">(</span>Cor<span class="p">,</span> type<span class="o">=</span><span class="s">&quot;lower&quot;</span><span class="p">,</span> method<span class="o">=</span><span class="s">&quot;number&quot;</span><span class="p">,</span> col<span class="o">=</span><span class="s">&quot;black&quot;</span><span class="p">,</span> 
+         add<span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span> diag<span class="o">=</span><span class="kc">FALSE</span><span class="p">,</span> tl.pos<span class="o">=</span><span class="s">&quot;n&quot;</span><span class="p">,</span> cl.pos<span class="o">=</span><span class="s">&quot;n&quot;</span><span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/corrplot-1.svg" alt="plot of chunk corrplot" /></p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>dat <span class="o">%&gt;%</span> 
+    <span class="kp">as.data.frame</span><span class="p">()</span> <span class="o">%&gt;%</span>
+    select<span class="p">(</span><span class="o">-</span><span class="kt">c</span><span class="p">(</span>famhist<span class="p">))</span> <span class="o">%&gt;%</span>
+    melt<span class="p">()</span> <span class="o">%&gt;%</span>
+    ggplot<span class="p">(</span>aes<span class="p">(</span>x<span class="o">=</span>value<span class="p">,</span> fill<span class="o">=</span>variable<span class="p">))</span><span class="o">+</span>
+        geom_histogram<span class="p">(</span>colour<span class="o">=</span><span class="s">&quot;black&quot;</span><span class="p">,</span> size<span class="o">=</span><span class="m">0.1</span><span class="p">)</span> <span class="o">+</span>
+        facet_wrap<span class="p">(</span><span class="o">~</span>variable<span class="p">,</span> ncol<span class="o">=</span><span class="m">3</span><span class="p">,</span> scale<span class="o">=</span><span class="s">&quot;free&quot;</span><span class="p">)</span> <span class="o">+</span>
+        theme_classic<span class="p">()</span> <span class="o">+</span>
+        scale_fill_brewer<span class="p">(</span>palette<span class="o">=</span><span class="s">&quot;Set1&quot;</span><span class="p">)</span><span class="o">+</span>
+        theme<span class="p">(</span>legend.position<span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/corrplot-2.svg" alt="plot of chunk corrplot" /></p>
+
+<p>#Divide the data into training and test set</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>chdYes <span class="o">=</span> heart<span class="p">[</span>heart<span class="o">$</span>chd<span class="o">==</span><span class="m">1</span><span class="p">,]</span>
+chdNo <span class="o">=</span> heart<span class="p">[</span>heart<span class="o">$</span>chd<span class="o">==</span><span class="m">0</span><span class="p">,]</span>
+
+sampleYes <span class="o">=</span> <span class="kp">sample</span><span class="p">(</span><span class="kp">rownames</span><span class="p">(</span>chdYes<span class="p">),</span> <span class="kp">nrow</span><span class="p">(</span>chdYes<span class="p">)</span><span class="o">*</span><span class="m">0.8</span><span class="p">)</span>
+sampleNo <span class="o">=</span> <span class="kp">sample</span><span class="p">(</span><span class="kp">rownames</span><span class="p">(</span>chdNo<span class="p">),</span> <span class="kp">nrow</span><span class="p">(</span>chdNo<span class="p">)</span><span class="o">*</span><span class="m">0.8</span><span class="p">)</span>
+
+trainYes <span class="o">=</span> chdYes<span class="p">[</span>sampleYes<span class="p">,]</span>
+trainNo <span class="o">=</span> chdNo<span class="p">[</span>sampleNo<span class="p">,]</span>
+
+testYes <span class="o">=</span> chdYes<span class="p">[</span><span class="o">!</span><span class="kp">rownames</span><span class="p">(</span>chdYes<span class="p">)</span> <span class="o">%in%</span> sampleYes<span class="p">,]</span>
+testNo <span class="o">=</span> chdNo<span class="p">[</span><span class="o">!</span><span class="kp">rownames</span><span class="p">(</span>chdNo<span class="p">)</span> <span class="o">%in%</span> sampleNo<span class="p">,]</span>
+
+dat <span class="o">=</span> <span class="kp">rbind</span><span class="p">(</span>trainYes<span class="p">,</span> trainNo<span class="p">)</span>
+test <span class="o">=</span> <span class="kp">rbind</span><span class="p">(</span>testYes<span class="p">,</span> testNo<span class="p">)</span></code></pre></figure>
+
+<p>###Model the data with JAGS
+As we have centered the data around 0, the distribution of Beta will follow a double exponential distriubtion.</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>X <span class="o">=</span> <span class="kp">scale</span><span class="p">(</span>dat<span class="p">[,</span><span class="m">-10</span><span class="p">],</span>  center<span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span> scale<span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+X <span class="o">%&gt;%</span> 
+    <span class="kp">as.data.frame</span><span class="p">()</span> <span class="o">%&gt;%</span>
+    select<span class="p">(</span><span class="o">-</span><span class="kt">c</span><span class="p">(</span>famhist<span class="p">))</span> <span class="o">%&gt;%</span>
+    melt<span class="p">()</span> <span class="o">%&gt;%</span>
+    ggplot<span class="p">(</span>aes<span class="p">(</span>x<span class="o">=</span>value<span class="p">,</span> fill<span class="o">=</span>variable<span class="p">))</span><span class="o">+</span>
+        geom_histogram<span class="p">(</span>colour<span class="o">=</span><span class="s">&quot;black&quot;</span><span class="p">,</span> size<span class="o">=</span><span class="m">0.1</span><span class="p">)</span> <span class="o">+</span>
+        facet_wrap<span class="p">(</span><span class="o">~</span>variable<span class="p">,</span> ncol<span class="o">=</span><span class="m">3</span><span class="p">,</span> scale<span class="o">=</span><span class="s">&quot;free&quot;</span><span class="p">)</span> <span class="o">+</span>
+        theme_classic<span class="p">()</span> <span class="o">+</span>
+        scale_fill_brewer<span class="p">(</span>palette<span class="o">=</span><span class="s">&quot;Set1&quot;</span><span class="p">)</span><span class="o">+</span>
+        theme<span class="p">(</span>legend.position<span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/Model_data-1.svg" alt="plot of chunk Model_data" /></p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>mod_glm <span class="o">=</span> <span class="kp">summary</span><span class="p">(</span>glm<span class="p">(</span>chd <span class="o">~</span> <span class="m">.</span><span class="p">,</span> data<span class="o">=</span>dat<span class="p">))</span></code></pre></figure>
+
+<p>#JAGS model</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kn">library</span><span class="p">(</span><span class="s">&quot;rjags&quot;</span><span class="p">)</span>
+mod1_string <span class="o">=</span> <span class="s">&quot; model {</span>
+<span class="s">    for (i in 1:length(y)) {</span>
+<span class="s">        y[i] ~ dbern(p[i])</span>
+<span class="s">        #logit(p[i]) = int + b[1]*AGE[i] + b[2]*CK[i] + b[3]*H[i] + b[4]*PK[i] + b[5]*LD[i]</span>
+<span class="s">        logit(p[i]) = int + b[1]*sbp[i] + b[2]+tobacco[i] + b[3]*ldl[i] + </span>
+<span class="s">            b[4]*adiposity[i] + b[5]*famhist[i] +b[6]*typea[i] +b[7]*obesity[i] + b[8]*alcohol[i] + b[9]*age[i]</span>
+<span class="s">    }</span>
+<span class="s">    int ~ dnorm(0.0, 1.0/25.0)</span>
+<span class="s">    for (j in 1:9) {</span>
+<span class="s">        b[j] ~ ddexp(0.0, sqrt(2.0)) # has variance 1.0</span>
+<span class="s">        #b[j] ~ dnorm(0.0, 2) # noninformative for logistic regression</span>
+<span class="s">        #b[j] ~ dnorm(0.0, 1.0/4.0^2)</span>
+<span class="s">    }</span>
+<span class="s">} &quot;</span>
+
+
+data_jags <span class="o">=</span> <span class="kt">list</span><span class="p">(</span>y<span class="o">=</span>dat<span class="p">[,</span><span class="m">10</span><span class="p">],</span> sbp<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;sbp&quot;</span><span class="p">],</span> tobacco<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;tobacco&quot;</span><span class="p">],</span> ldl<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;ldl&quot;</span><span class="p">],</span> 
+        adiposity<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;adiposity&quot;</span><span class="p">],</span> famhist<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;famhist&quot;</span><span class="p">],</span> 
+        typea<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;typea&quot;</span><span class="p">],</span> obesity<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;obesity&quot;</span><span class="p">],</span> alcohol<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;alcohol&quot;</span><span class="p">],</span> age<span class="o">=</span>X<span class="p">[,</span><span class="s">&quot;age&quot;</span><span class="p">])</span>
+
+
+params <span class="o">=</span> <span class="kt">c</span><span class="p">(</span><span class="s">&quot;int&quot;</span><span class="p">,</span> <span class="s">&quot;b&quot;</span><span class="p">)</span></code></pre></figure>
+
+<p>##Run JAGS</p>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## Error: &lt;text&gt;:3:1: unexpected &#39;,&#39;
+## 2: suppressMessages(update(mod1, 5e3))
+## 3: ,
+##    ^</code></pre></figure>
+
+<h2 id="convergence-diagnostics">convergence diagnostics</h2>
+<p>1) No pattern in traceplot
+2) After 5e3 updates (e.g. burn ins I still observe autocorrelation in b[2] and in int)
+    Increasing it to 5e4 
+3) DIC 
+Mean deviance:  503.9 
+penalty 8.646 
+Penalized deviance: 512.5</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>plot<span class="p">(</span>mod1_sim<span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/Plotting diagnostics-1.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-2.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-3.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-4.svg" alt="plot of chunk Plotting diagnostics" /></p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>gelman.diag<span class="p">(</span>mod1_sim<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## Potential scale reduction factors:
+## 
+##      Point est. Upper C.I.
+## b[1]       1.00       1.00
+## b[2]       1.05       1.11
+## b[3]       1.00       1.00
+## b[4]       1.00       1.01
+## b[5]       1.00       1.00
+## b[6]       1.00       1.00
+## b[7]       1.00       1.00
+## b[8]       1.00       1.00
+## b[9]       1.00       1.00
+## int        1.04       1.10
+## 
+## Multivariate psrf
+## 
+## 1.02</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>autocorr.diag<span class="p">(</span>mod1_sim<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##               b[1]      b[2]          b[3]        b[4]          b[5]
+## Lag 0  1.000000000 1.0000000  1.0000000000 1.000000000  1.0000000000
+## Lag 1  0.287920926 0.9851922  0.3462278072 0.722909298  0.2658015636
+## Lag 5  0.010262570 0.9378278  0.0008810413 0.205100190  0.0024193182
+## Lag 10 0.007303032 0.8806068  0.0132742196 0.030675749 -0.0005156971
+## Lag 50 0.005479209 0.5317571 -0.0033351594 0.005065785 -0.0052446834
+##                b[6]        b[7]         b[8]         b[9]       int
+## Lag 0   1.000000000 1.000000000  1.000000000  1.000000000 1.0000000
+## Lag 1   0.301678048 0.630132049  0.239460718  0.534791017 0.9852943
+## Lag 5   0.004675731 0.172722918 -0.006375527  0.092841859 0.9369034
+## Lag 10  0.004933605 0.036995541 -0.002855998  0.005109218 0.8799680
+## Lag 50 -0.002915316 0.007974022  0.004067879 -0.006795221 0.5316811</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>autocorr.plot<span class="p">(</span>mod1_sim<span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/Plotting diagnostics-5.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-6.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-7.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-8.svg" alt="plot of chunk Plotting diagnostics" /><img src="/assets/Rfig/Plotting diagnostics-9.svg" alt="plot of chunk Plotting diagnostics" /></p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>effectiveSize<span class="p">(</span>mod1_sim<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##       b[1]       b[2]       b[3]       b[4]       b[5]       b[6] 
+## 8172.85337   96.52570 6961.24000 2350.24891 8535.10192 7542.87353 
+##       b[7]       b[8]       b[9]        int 
+## 2810.94261 8762.84597 3950.24210   98.74925</code></pre></figure>
+
+<p>##Summary statistics
+I observe that tobacco, adiposity and alcohol have
+posterior probabilities centered around 0.
+This means that they do not contribute much to heart disease
+I remove these and compare between models</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>dic1</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## Mean deviance:  394.9 
+## penalty 8.171 
+## Penalized deviance: 403.1</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>posterior <span class="o">&lt;-</span> mod1_csim<span class="p">[,</span><span class="m">1</span><span class="o">:</span><span class="m">9</span><span class="p">]</span>
+<span class="kp">colnames</span><span class="p">(</span>posterior<span class="p">)</span> <span class="o">&lt;-</span> <span class="kp">colnames</span><span class="p">(</span>X<span class="p">)</span>
+
+posterior<span class="o">%&gt;%</span> 
+    <span class="kp">as.data.frame</span><span class="p">()</span> <span class="o">%&gt;%</span>
+    select<span class="p">(</span><span class="o">-</span><span class="kt">c</span><span class="p">(</span>famhist<span class="p">))</span> <span class="o">%&gt;%</span>
+    melt<span class="p">()</span> <span class="o">%&gt;%</span>
+    ggplot<span class="p">(</span>aes<span class="p">(</span>x<span class="o">=</span>value<span class="p">,</span> fill<span class="o">=</span>variable<span class="p">))</span><span class="o">+</span>
+        geom_histogram<span class="p">(</span>colour<span class="o">=</span><span class="s">&quot;black&quot;</span><span class="p">,</span> size<span class="o">=</span><span class="m">0.1</span><span class="p">,</span> binwidth<span class="o">=</span><span class="m">0.05</span><span class="p">)</span> <span class="o">+</span>
+        facet_wrap<span class="p">(</span><span class="o">~</span>variable<span class="p">,</span> ncol<span class="o">=</span><span class="m">3</span><span class="p">)</span> <span class="o">+</span>
+        theme_classic<span class="p">()</span> <span class="o">+</span>
+        scale_fill_brewer<span class="p">(</span>palette<span class="o">=</span><span class="s">&quot;Set1&quot;</span><span class="p">)</span><span class="o">+</span>
+        theme<span class="p">(</span>legend.position<span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">)</span> <span class="o">+</span>
+        xlim<span class="p">(</span><span class="m">-3</span><span class="p">,</span> <span class="m">3</span><span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/unnamed-chunk-1-1.svg" alt="plot of chunk unnamed-chunk-1" /></p>
+
+<p>##Ajust model to remove terms centered around 0
+Here the autocorrelation disappers and the effective smaple size is larger for all variables</p>
+
+<p><img src="/assets/Rfig/unnamed-chunk-2-1.svg" alt="plot of chunk unnamed-chunk-2" /><img src="/assets/Rfig/unnamed-chunk-2-2.svg" alt="plot of chunk unnamed-chunk-2" /><img src="/assets/Rfig/unnamed-chunk-2-3.svg" alt="plot of chunk unnamed-chunk-2" /><img src="/assets/Rfig/unnamed-chunk-2-4.svg" alt="plot of chunk unnamed-chunk-2" /><img src="/assets/Rfig/unnamed-chunk-2-5.svg" alt="plot of chunk unnamed-chunk-2" /></p>
+
+<h1 id="comparing-the-models">Comparing the models</h1>
+<p>DIC for model 1 is larger than for model 2. Therefore, model2 is better and I will use this</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>dic1</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## Mean deviance:  394.9 
+## penalty 8.171 
+## Penalized deviance: 403.1</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>dic2</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## Mean deviance:  388.3 
+## penalty 6.957 
+## Penalized deviance: 395.2</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>dic1 <span class="o">-</span> dic2</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## Difference: 7.843772
+## Sample standard error: 26.6649</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kp">summary</span><span class="p">(</span>mod2_sim<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## 
+## Iterations = 6001:11000
+## Thinning interval = 1 
+## Number of chains = 3 
+## Sample size per chain = 5000 
+## 
+## 1. Empirical mean and standard deviation for each variable,
+##    plus standard error of the mean:
+## 
+##          Mean     SD Naive SE Time-series SE
+## b[1]  0.14946 0.1264 0.001032       0.001493
+## b[2]  0.47494 0.1349 0.001101       0.001532
+## b[3]  0.40884 0.1226 0.001001       0.001293
+## b[4]  0.34692 0.1351 0.001103       0.001542
+## b[5] -0.06677 0.1289 0.001052       0.001496
+## b[6]  0.80272 0.1645 0.001343       0.002163
+## int  -0.87060 0.1362 0.001112       0.001631
+## 
+## 2. Quantiles for each variable:
+## 
+##          2.5%     25%     50%     75%   97.5%
+## b[1] -0.08968  0.0631  0.1470  0.2336  0.4073
+## b[2]  0.21582  0.3816  0.4739  0.5666  0.7386
+## b[3]  0.16948  0.3266  0.4088  0.4910  0.6501
+## b[4]  0.08586  0.2571  0.3455  0.4353  0.6193
+## b[5] -0.32615 -0.1513 -0.0634  0.0181  0.1826
+## b[6]  0.48890  0.6896  0.8020  0.9113  1.1381
+## int  -1.14168 -0.9611 -0.8686 -0.7798 -0.6092</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>posterior <span class="o">&lt;-</span> mod2_csim<span class="p">[,</span><span class="m">1</span><span class="o">:</span><span class="m">6</span><span class="p">]</span>
+<span class="kp">colnames</span><span class="p">(</span>posterior<span class="p">)</span> <span class="o">&lt;-</span> <span class="kp">colnames</span><span class="p">(</span>X<span class="p">)[</span><span class="o">-</span><span class="kt">c</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="m">4</span><span class="p">,</span><span class="m">8</span><span class="p">)]</span>
+
+posterior<span class="o">%&gt;%</span> 
+    <span class="kp">as.data.frame</span><span class="p">()</span> <span class="o">%&gt;%</span>
+    select<span class="p">(</span><span class="o">-</span><span class="kt">c</span><span class="p">(</span>famhist<span class="p">))</span> <span class="o">%&gt;%</span>
+    melt<span class="p">()</span> <span class="o">%&gt;%</span>
+    ggplot<span class="p">(</span>aes<span class="p">(</span>x<span class="o">=</span>value<span class="p">,</span> fill<span class="o">=</span>variable<span class="p">))</span><span class="o">+</span>
+        geom_histogram<span class="p">(</span>colour<span class="o">=</span><span class="s">&quot;black&quot;</span><span class="p">,</span> size<span class="o">=</span><span class="m">0.1</span><span class="p">,</span> binwidth<span class="o">=</span><span class="m">0.05</span><span class="p">)</span> <span class="o">+</span>
+        facet_wrap<span class="p">(</span><span class="o">~</span>variable<span class="p">,</span> ncol<span class="o">=</span><span class="m">3</span><span class="p">)</span> <span class="o">+</span>
+        theme_classic<span class="p">()</span> <span class="o">+</span>
+        scale_fill_brewer<span class="p">(</span>palette<span class="o">=</span><span class="s">&quot;Set1&quot;</span><span class="p">)</span><span class="o">+</span>
+        theme<span class="p">(</span>legend.position<span class="o">=</span><span class="s">&quot;none&quot;</span><span class="p">)</span> <span class="o">+</span>
+        xlim<span class="p">(</span><span class="m">-2</span><span class="p">,</span> <span class="m">2</span><span class="p">)</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/Posterior-1.svg" alt="plot of chunk Posterior" /></p>
+
+<p>```
+#Predict
+Using our trained model we have a 0.72 accuracy</p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="p">(</span>pm_coef <span class="o">=</span> <span class="kp">colMeans</span><span class="p">(</span>mod2_csim<span class="p">))</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##        b[1]        b[2]        b[3]        b[4]        b[5]        b[6] 
+##  0.14946415  0.47494319  0.40884479  0.34692490 -0.06676623  0.80272040 
+##         int 
+## -0.87059519</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>pm_Xb <span class="o">=</span> pm_coef<span class="p">[</span><span class="s">&quot;int&quot;</span><span class="p">]</span> <span class="o">+</span> X<span class="p">[,</span><span class="kt">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="m">3</span><span class="p">,</span><span class="m">5</span><span class="p">,</span><span class="m">6</span><span class="p">,</span><span class="m">7</span><span class="p">,</span> <span class="m">9</span><span class="p">)]</span> <span class="o">%*%</span> pm_coef<span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="m">6</span><span class="p">]</span>
+phat <span class="o">=</span> <span class="m">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="m">1.0</span> <span class="o">+</span> <span class="kp">exp</span><span class="p">(</span><span class="o">-</span>pm_Xb<span class="p">))</span>
+<span class="kp">head</span><span class="p">(</span>phat<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##          [,1]
+## 217 0.3155766
+## 353 0.7529948
+## 413 0.8381924
+## 20  0.6011533
+## 4   0.7105916
+## 335 0.5084351</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>plot<span class="p">(</span>phat<span class="p">,</span> <span class="kp">jitter</span><span class="p">(</span>dat<span class="p">[,</span><span class="m">10</span><span class="p">]))</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/unnamed-chunk-3-1.svg" alt="plot of chunk unnamed-chunk-3" /></p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="p">(</span>tab0.5 <span class="o">=</span> <span class="kp">table</span><span class="p">(</span>phat <span class="o">&gt;</span> <span class="m">0.5</span><span class="p">,</span> data_jags2<span class="o">$</span>y<span class="p">))</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##        
+##           0   1
+##   FALSE 202  63
+##   TRUE   39  65</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kp">sum</span><span class="p">(</span><span class="kp">diag</span><span class="p">(</span>tab0.5<span class="p">))</span> <span class="o">/</span> <span class="kp">sum</span><span class="p">(</span>tab0.5<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## [1] 0.7235772</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="c1">#0.72</span>
+
+X.test <span class="o">=</span> <span class="kp">scale</span><span class="p">(</span>test<span class="p">[,</span><span class="m">-10</span><span class="p">],</span>  center<span class="o">=</span><span class="kc">TRUE</span><span class="p">,</span> scale<span class="o">=</span><span class="kc">TRUE</span><span class="p">)</span>
+
+pm_Xb <span class="o">=</span> pm_coef<span class="p">[</span><span class="s">&quot;int&quot;</span><span class="p">]</span> <span class="o">+</span> X.test<span class="p">[,</span><span class="kt">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="m">3</span><span class="p">,</span><span class="m">5</span><span class="p">,</span><span class="m">6</span><span class="p">,</span><span class="m">7</span><span class="p">,</span> <span class="m">9</span><span class="p">)]</span> <span class="o">%*%</span> pm_coef<span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="m">6</span><span class="p">]</span>
+phat <span class="o">=</span> <span class="m">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="m">1.0</span> <span class="o">+</span> <span class="kp">exp</span><span class="p">(</span><span class="o">-</span>pm_Xb<span class="p">))</span>
+<span class="kp">head</span><span class="p">(</span>phat<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##         [,1]
+## 8  0.6404793
+## 19 0.8607690
+## 30 0.6674311
+## 31 0.1959541
+## 36 0.1227429
+## 54 0.1375159</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span>plot<span class="p">(</span>phat<span class="p">,</span> <span class="kp">jitter</span><span class="p">(</span>test<span class="p">[,</span><span class="m">10</span><span class="p">]))</span></code></pre></figure>
+
+<p><img src="/assets/Rfig/unnamed-chunk-3-2.svg" alt="plot of chunk unnamed-chunk-3" /></p>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="p">(</span>tab0.5 <span class="o">=</span> <span class="kp">table</span><span class="p">(</span>phat <span class="o">&gt;</span> <span class="m">0.5</span><span class="p">,</span> test<span class="p">[,</span><span class="m">10</span><span class="p">]))</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>##        
+##          0  1
+##   FALSE 49 16
+##   TRUE  12 16</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="kp">sum</span><span class="p">(</span><span class="kp">diag</span><span class="p">(</span>tab0.5<span class="p">))</span> <span class="o">/</span> <span class="kp">sum</span><span class="p">(</span>tab0.5<span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text"><span></span>## [1] 0.6989247</code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-r" data-lang="r"><span></span><span class="c1">#0.73</span></code></pre></figure>
+
+
+    </div>
+
+    
+
+  </div>
+
+</article>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <ul class="social">
+  <li><a href="https://github.com/jespermaag" target="_blank"><i class="icon icon-github"></i></a></li>
+  <li><a href="https://twitter.com/jespermaag" target="_blank"><i class="icon icon-twitter"></i></a></li>
+  <li><a href="https://linkedin.com/in/jesper-maag" target="_blank"><i class="icon icon-linkedin"></i></a></li>
+</ul>
+    <p class="txt-medium-gray">
+      <small>&copy;2020 All rights reserved. Made with <a href="http://jekyllrb.com/" target="_blank">Jekyll</a> and ♥</small>
+    </p>
+  </div>
+</footer>
+
+
+  <a href="http://jespermaag.github.io" target="_blank" class="github-corner"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#337ab7; color:#fff; position: absolute; top: 0; border: 0; right: 0;"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+</body>
+</html>
